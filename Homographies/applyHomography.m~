@@ -1,0 +1,4 @@
+function [ x2, y2 ] = applyHomography( H, x1, y1 )
+    p = [x1 y1 
+end
+
