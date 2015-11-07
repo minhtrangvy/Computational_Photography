@@ -75,19 +75,22 @@ for j = 1:num_of_images
 %     title(['mosaic piece ', j])
 end
 
-%% Create alpha masks and blur them
-gaussian_filter = fspecial('gaussian', [1 1], 10);
+%% Creating alpha masks for each image
 for this_image = 1:num_of_images
-
-    %Creating alpha masks for each image
     alpha_masks{this_image} = ~isnan(mosaic_pieces{this_image});
+    figure
+    imshow(alpha_masks{this_image})
+    title(['alpha_masks pixels ', this_image])
+end
+
+%% -------------------------- Blended Assumbly Portion ------------------------------
+%{
+%% Create alpha masks and blur them
+gaussian_filter = fspecial('gaussian', [3 3], 5);
+for this_image = 1:num_of_images
     
     %Blur the masks
     blurred_masks{this_image} = imfilter(im2double(alpha_masks{this_image}), gaussian_filter, 'symmetric');
-
-%     figure
-%     imshow(alpha_masks{this_image})
-%     title(['alpha_masks pixels ', this_image])
 %     
 %     figure
 %     imshow(blurred_masks{this_image})
@@ -98,9 +101,9 @@ end
 for this_image = 1:num_of_images
     blurred_masks{this_image} = alpha_masks{this_image} .* blurred_masks{this_image};
     
-    figure
-    imshow(blurred_masks{this_image})
-    title(['cleaned pixels ', this_image])
+%     figure
+%     imshow(blurred_masks{this_image})
+%     title(['cleaned pixels ', this_image])
 end
 
 %% Normalize blurred masks
@@ -110,9 +113,9 @@ for this_image = 1:num_of_images
     % Normalize all the blurred masks, this introduces NaNs
     blurred_masks{this_image} = blurred_masks{this_image} ./ total_of_all_masks;
     
-    figure
-    imshow(blurred_masks{this_image})
-    title(['normalized pixels ', this_image])
+%     figure
+%     imshow(blurred_masks{this_image})
+%     title(['normalized pixels ', this_image])
 end
 
 %% Blur mosaic pieces
@@ -120,21 +123,56 @@ for this_image = 1:num_of_images
     % Multiply with the images
     mosaic_pieces{this_image} = mosaic_pieces{this_image} .* blurred_masks{this_image};
     
+%     figure
+%     imshow(mosaic_pieces{this_image})
+%     title(['mosaic pieces ' this_image])
+end
+%}
+
+
+%% -------------------------- Two-Band Blending Portion ------------------------------
+%% Create low frequency images
+gaussian_filter = fspecial('gaussian', [20 20], 20);
+for this_image = 1:num_of_images
+    
+    low_frequency_images{this_image} = imfilter(im2double(mosaic_pieces{this_image}), gaussian_filter, 'symmetric');
+
     figure
-    imshow(mosaic_pieces{this_image})
-    title(['mosaic pieces ' this_image])
+    imshow(low_frequency_images{this_image})
+    title(['low_frequency_images ', this_image])    
 end
 
-break
+%% Blur alpha masks 
+gaussian_filter = fspecial('gaussian', [3 3], 5);
+for this_image = 1:num_of_images
+    
+    %Blur the masks
+    blurred_masks{this_image} = imfilter(im2double(alpha_masks{this_image}), gaussian_filter, 'symmetric');
 
+%     figure
+%     imshow(blurred_masks{this_image})
+%     title(['blurred pixels ', this_image])     
+end
+
+%% Cut off newly introduced pixels
+for this_image = 1:num_of_images
+    blurred_masks{this_image} = alpha_masks{this_image} .* blurred_masks{this_image};
+    
+%     figure
+%     imshow(blurred_masks{this_image})
+%     title(['cleaned pixels ', this_image])
+end
+
+%% Apply masks to low frequency mosaic pie
+
+break
 %% Compile the mosaic
 mosaic = zeros(size(mosaic_pieces{1}));
 for this_piece = 1:num_of_images
-    current_mask = clean_blurred_masks{this_piece};
+    valid_pieces = ~isnan(mosaic_pieces{this_piece});
     figure
-    imshow(current_mask)
-    title(['current mask' this_piece])
-    mosaic(current_mask) = mosaic_pieces{this_piece}(current_mask);
+    imshow(valid_pieces)
+    mosaic(valid_pieces) = mosaic_pieces{this_piece}(valid_pieces);
 end
 % mosaic = mosaic_pieces{1} + mosaic_pieces{2} + mosaic_pieces{3};
 % mosaic(clean_blurred_masks{1}) = mosaic_pieces{1}(clean_blurred_masks{1});

@@ -75,19 +75,35 @@ for j = 1:num_of_images
 %     title(['mosaic piece ', j])
 end
 
-%% Create alpha masks and blur them
-gaussian_filter = fspecial('gaussian', [3 3], 5);
-for this_image = 1:num_of_images
+%{
+%% Get mosaic without any blending
+normal_mosaic = zeros(size(mosaic_pieces{1}));
+for mosaic_piece = 1:num_of_images
+    valid_pieces = ~isnan(mosaic_pieces{mosaic_piece});
+    normal_mosaic(valid_pieces) = mosaic_pieces{mosaic_piece}(valid_pieces);
+end
 
-    %Creating alpha masks for each image
+figure
+imshow(normal_mosaic)
+title('normal mosaic')
+%}
+
+%% Creating alpha masks for each image
+for this_image = 1:num_of_images
     alpha_masks{this_image} = ~isnan(mosaic_pieces{this_image});
     
-    %Blur the masks
-    blurred_masks{this_image} = imfilter(im2double(alpha_masks{this_image}), gaussian_filter, 'symmetric');
-
 %     figure
 %     imshow(alpha_masks{this_image})
 %     title(['alpha_masks pixels ', this_image])
+end
+
+%% -------------------------- Blended Assumbly Portion ------------------------------
+%% Create alpha masks and blur them
+gaussian_filter = fspecial('gaussian', [3 3], 5);
+for this_image = 1:num_of_images
+    
+    %Blur the masks
+    blurred_masks{this_image} = imfilter(im2double(alpha_masks{this_image}), gaussian_filter, 'symmetric');
 %     
 %     figure
 %     imshow(blurred_masks{this_image})
@@ -120,23 +136,102 @@ for this_image = 1:num_of_images
     % Multiply with the images
     mosaic_pieces{this_image} = mosaic_pieces{this_image} .* blurred_masks{this_image};
     
-%     figure
-%     imshow(mosaic_pieces{this_image})
-%     title(['mosaic pieces ' this_image])
+    figure
+    imshow(mosaic_pieces{this_image})
+    title(['mosaic pieces ' this_image])
 end
 
 %% Compile the mosaic
-mosaic = zeros(size(mosaic_pieces{1}));
+blended_mosaic = zeros(size(mosaic_pieces{1}));
 for this_piece = 1:num_of_images
     valid_pieces = ~isnan(mosaic_pieces{this_piece});
     figure
     imshow(valid_pieces)
-    mosaic(valid_pieces) = mosaic_pieces{this_piece}(valid_pieces);
+    blended_mosaic(valid_pieces) = mosaic_pieces{this_piece}(valid_pieces);
 end
-% mosaic = mosaic_pieces{1} + mosaic_pieces{2} + mosaic_pieces{3};
-% mosaic(clean_blurred_masks{1}) = mosaic_pieces{1}(clean_blurred_masks{1});
-
-%% Final result
 figure
-imshow(mosaic)
-title('final image')
+imshow(blended_mosaic)
+title('blended mosaic')
+
+%{
+%% -------------------------- Two-Band Blending Portion ------------------------------
+%% Create low frequency images
+gaussian_filter = fspecial('gaussian', [10 10], 10);
+for this_image = 1:num_of_images
+    
+    low_freq_images{this_image} = imfilter(im2double(mosaic_pieces{this_image}), gaussian_filter, 'symmetric');
+
+%     figure
+%     imshow(low_freq_images{this_image})
+%     title(['low_freq_images ', this_image])    
+end
+
+%% Create high frequency images
+for this_image = 1:num_of_images
+    high_freq_images{this_image} = mosaic_pieces{this_image} - low_freq_images{this_image};
+    
+%     figure
+%     imshow(high_freq_images{this_image})
+%     title(['high_freq_images ' this_image]) 
+end
+
+%% Blur alpha masks 
+gaussian_filter = fspecial('gaussian', [3 3], 5);
+for this_image = 1:num_of_images
+    
+    %Blur the masks
+    blurred_masks{this_image} = imfilter(im2double(alpha_masks{this_image}), gaussian_filter, 'symmetric');
+
+%     figure
+%     imshow(blurred_masks{this_image})
+%     title(['blurred pixels ', this_image])     
+end
+
+%% Cut off newly introduced pixels
+for this_image = 1:num_of_images
+    blurred_masks{this_image} = alpha_masks{this_image} .* blurred_masks{this_image};
+    
+%     figure
+%     imshow(blurred_masks{this_image})
+%     title(['cleaned pixels ', this_image])
+end
+
+%% Apply masks to low frequency mosaic pieces
+for this_image = 1:num_of_images
+    % Multiply with the images
+    low_freq_images{this_image} = low_freq_images{this_image} .* blurred_masks{this_image};
+    
+%     figure
+%     imshow(low_freq_images{this_image})
+%     title(['low_freq_images pieces ' this_image])
+end
+
+%% Apply binary alpha masks to high frequency mosaic pieces
+for this_image = 1:num_of_images
+    high_freq_images{this_image} = high_freq_images{this_image} .* alpha_masks{this_image};
+    
+%     figure
+%     imshow(high_freq_images{this_image})
+%     title(['high_freq_images pieces ' this_image])
+end
+
+%% Compile the low frequency mosaic
+low_freq_mosaic = zeros(size(mosaic_pieces{1}));
+for this_piece = 1:num_of_images
+    valid_pieces = ~isnan(mosaic_pieces{this_piece});
+    low_freq_mosaic(valid_pieces) = low_freq_images{this_piece}(valid_pieces);
+end
+figure
+imshow(low_freq_mosaic)
+title('low_freq_mosaic image')
+
+%% Compile the high frequency mosaic
+high_freq_mosaic = zeros(size(mosaic_pieces{1}));
+for this_piece = 1:num_of_images
+    valid_pieces = ~isnan(mosaic_pieces{this_piece});
+    high_freq_mosaic(valid_pieces) = high_freq_images{this_piece}(valid_pieces);
+end
+figure
+imshow(high_freq_mosaic)
+title('high_freq_mosaic image')
+%} 

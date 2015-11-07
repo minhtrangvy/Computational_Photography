@@ -6,7 +6,7 @@ clear all
 close all
 
 % %% Take in the images and grab the grey of them
-input_dir = '/Users/minhtrangvy/Documents/MATLAB/Computational_Photography/Homographies/atrium/';
+input_dir = '/Users/minhtrangvy/Documents/MATLAB/Computational_Photography/Homographies/drinkward/';
 input_file_ext = 'JPG';
 files = dir([input_dir '*.' input_file_ext]);
 
