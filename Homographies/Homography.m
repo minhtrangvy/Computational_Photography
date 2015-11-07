@@ -75,56 +75,66 @@ for j = 1:num_of_images
 %     title(['mosaic piece ', j])
 end
 
-mosaic = zeros(size(mosaic_pieces{1}));
-gaussian_filter = fspecial('gaussian', [30 30], 30);
-
+%% Create alpha masks and blur them
+gaussian_filter = fspecial('gaussian', [3 3], 5);
 for this_image = 1:num_of_images
 
     %Creating alpha masks for each image
     alpha_masks{this_image} = ~isnan(mosaic_pieces{this_image});
     
     %Blur the masks
-    blurred_masks{this_image} = imfilter(im2double(alpha_masks{this_image}), gaussian_filter);
-    
-    % Getting rid of pixels that weren't there before
-    clean_blurred_masks{this_image} = alpha_masks{this_image} .* blurred_masks{this_image};
+    blurred_masks{this_image} = imfilter(im2double(alpha_masks{this_image}), gaussian_filter, 'symmetric');
 
 %     figure
-%     imshow(valid_pixels{this_image})
-%     title(['valid pixels ', this_image])
+%     imshow(alpha_masks{this_image})
+%     title(['alpha_masks pixels ', this_image])
 %     
 %     figure
 %     imshow(blurred_masks{this_image})
-%     title(['blurred pixels ', this_image])
-
-    figure
-    imshow(clean_blurred_masks{this_image})
-    title(['cleaned blurred masks ', this_image])
-%     
+%     title(['blurred pixels ', this_image])     
 end
 
-%% Blending
-total_of_all_masks = clean_blurred_masks{1} + clean_blurred_masks{2} + clean_blurred_masks{3};
-for mask = 1:num_of_images
-    % Normalize all the blurred masks
-    clean_blurred_masks{mask} = clean_blurred_masks{mask} ./ total_of_all_masks;
+%% Cut off newly introduced pixels
+for this_image = 1:num_of_images
+    blurred_masks{this_image} = alpha_masks{this_image} .* blurred_masks{this_image};
     
+%     figure
+%     imshow(blurred_masks{this_image})
+%     title(['cleaned pixels ', this_image])
+end
+
+%% Normalize blurred masks
+total_of_all_masks = blurred_masks{1} + blurred_masks{2} + blurred_masks{3};
+for this_image = 1:num_of_images
+    
+    % Normalize all the blurred masks, this introduces NaNs
+    blurred_masks{this_image} = blurred_masks{this_image} ./ total_of_all_masks;
+    
+%     figure
+%     imshow(blurred_masks{this_image})
+%     title(['normalized pixels ', this_image])
+end
+
+%% Blur mosaic pieces
+for this_image = 1:num_of_images
     % Multiply with the images
-    mosaic_pieces{mask} = mosaic_pieces{mask} .* clean_blurred_masks{mask};
+    mosaic_pieces{this_image} = mosaic_pieces{this_image} .* blurred_masks{this_image};
     
-    figure
-    imshow(clean_blurred_masks{mask})
-    title(['cleaned normalized masks ', this_image])
-    
-    figure
-    imshow(mosaic_pieces{mask})
-    title(['blurred mosaic pieces ', this_image])
+%     figure
+%     imshow(mosaic_pieces{this_image})
+%     title(['mosaic pieces ' this_image])
 end
 
-for final_mosaic = 1:num_of_images
-    current_mask = clean_blurred_masks{final_mosaic};
-    mosaic(logical(current_mask)) = mosaic_pieces{final_mosaic}(logical(current_mask));
+%% Compile the mosaic
+mosaic = zeros(size(mosaic_pieces{1}));
+for this_piece = 1:num_of_images
+    valid_pieces = ~isnan(mosaic_pieces{this_piece});
+    figure
+    imshow(valid_pieces)
+    mosaic(valid_pieces) = mosaic_pieces{this_piece}(valid_pieces);
 end
+% mosaic = mosaic_pieces{1} + mosaic_pieces{2} + mosaic_pieces{3};
+% mosaic(clean_blurred_masks{1}) = mosaic_pieces{1}(clean_blurred_masks{1});
 
 %% Final result
 figure
